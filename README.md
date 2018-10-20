@@ -4,9 +4,9 @@
 
 - imageをビルド
 
-`$make setup`
+`make setup`
 
 - rstudioサーバを起動
 
 1. `make rstudio`
-1. ブラウザでlocalhost:8787にアクセス(ユーザ名はrstudio/パスワードはrstudio1)
+2. ブラウザでlocalhost:8787にアクセス(ユーザ名はrstudio/パスワードはrstudio1)
