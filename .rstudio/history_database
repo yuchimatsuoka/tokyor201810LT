@@ -549,3 +549,221 @@
 1540008973344:nrow(validation_sample)/nrow(test_action)
 1540008973397:mean(test_action$visit)
 1540008973432:mean(validation_sample$visit)
+1540010883106:library(tidyverse)
+1540010884035:library(caTools)
+1540010884063:library(lpSolveAPI)
+1540010884090:library(makedummies)
+1540010884110:set.seed(74)
+1540010884305:if (file.exists("data/d.csv")){
+1540010884320:d <- read_csv("data/d.csv")
+1540010884335:}else{
+1540010884351:d <- read_csv("http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv")
+1540010884364:write_csv(d,"data/d.csv")
+1540010884377:}
+1540010897372:d <-  d %>% mutate(ix = 1:nrow(d)) %>%
+1540010897424:select(ix,segment,everything())
+1540010897523:d
+1540010897689:d_dummied <- d %>%
+1540010897704:select(ix,segment,visit,recency,history,mens,womens,newbie) %>%
+1540010897714:bind_cols(
+1540010897729:makedummies(d %>%
+1540010897746:select(zip_code,channel) %>%
+1540010897763:mutate(zip_code=as.factor(zip_code))
+1540010897778:))
+1540010897823:d_dummied
+1540010898139:test_ix <- caTools::sample.split(d_dummied$visit,SplitRatio = 1/2)
+1540010898187:train <- d_dummied %>% filter(!test_ix)
+1540010898224:test <- d_dummied %>% filter(test_ix)
+1540010898278:segs= c("Womens E-Mail","Mens E-Mail","No E-Mail")
+1540010898303:features <- colnames(train)[4:length(colnames(train))]
+1540010898328:fm <- as.formula(str_c("visit~",str_c(features,collapse = "+")))
+1540010898353:fm
+1540010898420:models <- list()
+1540010898442:for(i in 1:length(segs)){
+1540010898465:train_sub <- train %>%
+1540010898484:filter(segment==segs[i])
+1540010898499:m <- glm(formula = fm,data = train_sub,family='binomial')
+1540010898515:models[[i]] = m
+1540010898532:}
+1540010899048:test_score <- test %>%
+1540010899072:mutate(
+1540010899095:treat_w = predict(models[[1]],newdata = test,type = 'response')
+1540010899115:,treat_m = predict(models[[2]],newdata = test,type = 'response')
+1540010899129:,ctrl = predict(models[[3]],newdata = test,type = 'response')
+1540010899144:) %>%
+1540010899160:mutate(lift_w = treat_w-ctrl
+1540010899175:,lift_m = treat_m-ctrl) %>%
+1540010899188:select(ix,segment,visit,treat_w,treat_m,ctrl,lift_w,lift_m)
+1540010899364:test_score
+1540010899506:K <- 10 #クラスタ数
+1540010899524:M <- 2 #キャンペーン種類
+1540010899541:B <- 20000 #コスト制約
+1540010899582:clusters <- kmeans(test_score %>%
+1540010899594:select(lift_w,lift_m) %>%
+1540010899606:as.matrix()
+1540010899616:,K)
+1540010899724:test_score <- test_score %>%
+1540010899738:mutate(cluster=clusters$cluster)
+1540010899779:test_score
+1540010899913:ggplot(test_score)+
+1540010899923:geom_point(aes(x=lift_w,y=lift_m,color=as.factor(cluster)),alpha=1/4)+
+1540010899936:theme_classic()+
+1540010899949:theme(legend.position = 'none')
+1540010901032:lpmodel <- make.lp(nrow = K+1,ncol = K*M)
+1540010901051:set.constr.value(lpmodel,rhs=B,constraints = 1)
+1540010901071:i <- 1
+1540010901090:for(k in 1:K){
+1540010901104:for(m in 1:M){
+1540010901119:set.column(lpmodel,i,c(clusters$centers[k,m],1,1), indices=c(0,1,k+1))
+1540010901133:i <- i+1
+1540010901147:}
+1540010901160:set.constr.value(lpmodel,rhs=clusters$size[k],constraints = k+1)
+1540010901173:}
+1540010901197:lp.control(lpmodel,sense='max')
+1540010901610:lpmodel
+1540010901653:solve(lpmodel)
+1540010901691:get.objective(lpmodel)
+1540010901727:get.variables(lpmodel)
+1540010901854:optimal_tbl <- matrix(get.variables(lpmodel),K,M,byrow = T)
+1540010901872:colnames(optimal_tbl) <- c("Womens E-Mail","Mens E-Mail")
+1540010901895:optimal_tbl <- optimal_tbl %>% as_tibble() %>% mutate(cluster=1:dim(optimal_tbl)[1])
+1540010901917:optimal_tbl
+1540010901978:test_action <- test_score %>%
+1540010901991:inner_join(optimal_tbl,by='cluster') %>%
+1540010902002:group_by(segment) %>%
+1540010902013:mutate(lift_w_rank=row_number(desc(lift_w)),lift_m_rank=row_number(desc(lift_m))) %>%
+1540010902024:ungroup() %>%
+1540010902037:mutate(action=case_when(
+1540010902048:`Womens E-Mail` == 0 & `Mens E-Mail` == 0 ~ 'No Email'
+1540010902060:, `Womens E-Mail` >= lift_w_rank ~ 'Womens E-Mail'
+1540010902072:, `Mens E-Mail` >= lift_m_rank ~ 'Mens E-Mail'
+1540010902086:, TRUE ~ 'No Email'
+1540010902103:))
+1540010902172:test_action
+1540010902377:test_action %>%
+1540010902389:filter(is.na(action))
+1540010902442:test_action %>%
+1540010902453:select(ix,segment,visit,action)
+1540010902572:validation_sample <- test_action %>%
+1540010902584:filter(segment==action)
+1540010902605:nrow(validation_sample)/nrow(test_action)
+1540010902701:mean(test_action$visit)
+1540010902741:mean(validation_sample$visit)
+1540011000543:validation_sample <- test_action %>%
+1540011000553:filter(segment==action)
+1540011033010:str_c("ランダム時の訪問率：",mean(test_action$visit))
+1540011033032:str_c("ロジックでの訪問率：",mean(validation_sample$visit))
+1540011143770:library(tidyverse)
+1540011144593:library(caTools)
+1540011144618:library(lpSolveAPI)
+1540011144650:library(makedummies)
+1540011144674:set.seed(74)
+1540011144840:if (file.exists("data/d.csv")){
+1540011144853:d <- read_csv("data/d.csv")
+1540011144864:}else{
+1540011144878:d <- read_csv("http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv")
+1540011144890:write_csv(d,"data/d.csv")
+1540011144901:}
+1540011145092:d <-  d %>% mutate(ix = 1:nrow(d)) %>%
+1540011145100:select(ix,segment,everything())
+1540011145139:d
+1540011145265:d_dummied <- d %>%
+1540011145275:select(ix,segment,visit,recency,history,mens,womens,newbie) %>%
+1540011145286:bind_cols(
+1540011145295:makedummies(d %>%
+1540011145307:select(zip_code,channel) %>%
+1540011145319:mutate(zip_code=as.factor(zip_code))
+1540011145331:))
+1540011145368:d_dummied
+1540011145578:test_ix <- caTools::sample.split(d_dummied$visit,SplitRatio = 1/2)
+1540011145602:train <- d_dummied %>% filter(!test_ix)
+1540011145623:test <- d_dummied %>% filter(test_ix)
+1540011145668:segs= c("Womens E-Mail","Mens E-Mail","No E-Mail")
+1540011145685:features <- colnames(train)[4:length(colnames(train))]
+1540011145710:fm <- as.formula(str_c("visit~",str_c(features,collapse = "+")))
+1540011145732:fm
+1540011145798:models <- list()
+1540011145814:for(i in 1:length(segs)){
+1540011145828:train_sub <- train %>%
+1540011145841:filter(segment==segs[i])
+1540011145858:m <- glm(formula = fm,data = train_sub,family='binomial')
+1540011145870:models[[i]] = m
+1540011145885:}
+1540011146251:test_score <- test %>%
+1540011146262:mutate(
+1540011146273:treat_w = predict(models[[1]],newdata = test,type = 'response')
+1540011146282:,treat_m = predict(models[[2]],newdata = test,type = 'response')
+1540011146294:,ctrl = predict(models[[3]],newdata = test,type = 'response')
+1540011146306:) %>%
+1540011146317:mutate(lift_w = treat_w-ctrl
+1540011146327:,lift_m = treat_m-ctrl) %>%
+1540011146339:select(ix,segment,visit,treat_w,treat_m,ctrl,lift_w,lift_m)
+1540011146612:test_score
+1540011146737:K <- 10 #クラスタ数
+1540011146754:M <- 2 #キャンペーン種類
+1540011146778:B <- 20000 #コスト制約
+1540011146824:clusters <- kmeans(test_score %>%
+1540011146842:select(lift_w,lift_m) %>%
+1540011146854:as.matrix()
+1540011146868:,K)
+1540011146995:test_score <- test_score %>%
+1540011147009:mutate(cluster=clusters$cluster)
+1540011147042:test_score
+1540011147220:ggplot(test_score)+
+1540011147234:geom_point(aes(x=lift_w,y=lift_m,color=as.factor(cluster)),alpha=1/4)+
+1540011147247:theme_classic()+
+1540011147260:theme(legend.position = 'none')
+1540011148315:lpmodel <- make.lp(nrow = K+1,ncol = K*M)
+1540011148337:set.constr.value(lpmodel,rhs=B,constraints = 1)
+1540011148354:i <- 1
+1540011148383:for(k in 1:K){
+1540011148404:for(m in 1:M){
+1540011148426:set.column(lpmodel,i,c(clusters$centers[k,m],1,1), indices=c(0,1,k+1))
+1540011148445:i <- i+1
+1540011148463:}
+1540011148477:set.constr.value(lpmodel,rhs=clusters$size[k],constraints = k+1)
+1540011148498:}
+1540011148534:lp.control(lpmodel,sense='max')
+1540011149043:lpmodel
+1540011149153:solve(lpmodel)
+1540011149188:get.objective(lpmodel)
+1540011149217:get.variables(lpmodel)
+1540011149411:optimal_tbl <- matrix(get.variables(lpmodel),K,M,byrow = T)
+1540011149435:colnames(optimal_tbl) <- c("Womens E-Mail","Mens E-Mail")
+1540011149454:optimal_tbl <- optimal_tbl %>% as_tibble() %>% mutate(cluster=1:dim(optimal_tbl)[1])
+1540011149477:optimal_tbl
+1540011149541:test_action <- test_score %>%
+1540011149558:inner_join(optimal_tbl,by='cluster') %>%
+1540011149572:group_by(segment) %>%
+1540011149584:mutate(lift_w_rank=row_number(desc(lift_w)),lift_m_rank=row_number(desc(lift_m))) %>%
+1540011149599:ungroup() %>%
+1540011149611:mutate(action=case_when(
+1540011149623:`Womens E-Mail` == 0 & `Mens E-Mail` == 0 ~ 'No Email'
+1540011149638:, `Womens E-Mail` >= lift_w_rank ~ 'Womens E-Mail'
+1540011149650:, `Mens E-Mail` >= lift_m_rank ~ 'Mens E-Mail'
+1540011149663:, TRUE ~ 'No Email'
+1540011149679:))
+1540011149741:test_action
+1540011149899:test_action %>%
+1540011149918:select(ix,segment,visit,action)
+1540011150052:validation_sample <- test_action %>%
+1540011150071:filter(segment==action)
+1540011150127:str_c("ランダム時の訪問率：",mean(test_action$visit))
+1540011150169:str_c("ロジックでの訪問率：",mean(validation_sample$visit))
+1540011229824:test_score %>%
+1540011229832:select(ix,treat_w,treat_m,ctrl,lift_w,lift_m)
+1540011240271:test_score %>%
+1540011240283:select(ix,treat_w,treat_m,ctrl,lift_w,lift_m)
+1540011938627:lpmodel <- make.lp(nrow = K+1,ncol = K*M)
+1540011938643:set.constr.value(lpmodel,rhs=B,constraints = 1)
+1540011938652:i <- 1
+1540011938663:for(k in 1:K){
+1540011938672:for(m in 1:M){
+1540011938684:set.column(lpmodel,i,c(clusters$centers[k,m],1,1), indices=c(0,1,k+1))
+1540011938692:i <- i+1
+1540011938703:}
+1540011938710:set.constr.value(lpmodel,rhs=clusters$size[k],constraints = k+1)
+1540011938720:}
+1540011938746:lp.control(lpmodel,sense='max')
+1540011939331:solve(lpmodel)
+1540013675546:20/14.6

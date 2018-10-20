@@ -1,8 +1,0 @@
-"0","action_tbl <-optimal_tbl %>% "
-"0","  mutate(action=if_else(`Womens E-Mail`==0 & `Mens E-Mail`==0,""No Email"","
-"0","                        if_else(`Womens E-Mail`>`Mens E-Mail`,'Womens E-Mail','Mens E-Mail')"
-"0","                        )"
-"0","         ) %>% "
-"0","  mutate(max_num=if_else(action=='Womens E-Mail',`Womens E-Mail`,`Mens E-Mail`)) %>% "
-"0","  select(cluster,action,max_num)"
-"0","action_tbl"

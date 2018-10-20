@@ -210,7 +210,8 @@
 "
 "1","
 "
-"0","lpmodel"
-"1","Model name: 
-  a linear program with 20 decision variables and 11 constraints
+"0","solve(lpmodel)"
+"1","[1]"
+"1"," 0"
+"1","
 "

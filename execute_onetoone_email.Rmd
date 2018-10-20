@@ -42,8 +42,6 @@ d_dummied
 
 50%ずつtrain/testにわける
 
-50%でtrain/testに分ける。
-
 ```{r}
 test_ix <- caTools::sample.split(d_dummied$visit,SplitRatio = 1/2)
 train <- d_dummied %>% filter(!test_ix)
@@ -84,6 +82,11 @@ test_score <- test %>%
          ,lift_m = treat_m-ctrl) %>% 
   select(ix,segment,visit,treat_w,treat_m,ctrl,lift_w,lift_m)
 test_score
+```
+
+```{r}
+test_score %>% 
+  select(ix,treat_w,treat_m,ctrl,lift_w,lift_m)
 ```
 
 
@@ -132,15 +135,8 @@ for(k in 1:K){
   set.constr.value(lpmodel,rhs=clusters$size[k],constraints = k+1)
 }
 lp.control(lpmodel,sense='max')
-lpmodel
-```
-
-```{r}
 solve(lpmodel)
-get.objective(lpmodel)
-get.variables(lpmodel)
 ```
-
 
 最適化の結果
 
@@ -152,27 +148,8 @@ optimal_tbl
 ```
 
 
-クラスタごとにとるアクション
-
-```{r}
-action_tbl <-optimal_tbl %>% 
-  mutate(action=if_else(`Womens E-Mail`==0 & `Mens E-Mail`==0,"No Email",
-                        if_else(`Womens E-Mail`>`Mens E-Mail`,'Womens E-Mail','Mens E-Mail')
-                        )
-         ) %>% 
-  mutate(max_num=if_else(action=='Womens E-Mail',`Womens E-Mail`,`Mens E-Mail`)) %>% 
-  select(cluster,action,max_num)
-action_tbl
-```
-
-
-
-
-クラスタ内で誰を選ぶか？
-1. リフトが大きい人
-  - 効率がいい
-  - 今回はコストが一緒なのでこれでよい。
-
+クラスタ内でリフトが大きい人を選ぶ
+- ※今回は各キャンペーンのコストが一緒なのでこれでよい。
 
 ```{r}
 test_action <- test_score %>% 
@@ -188,10 +165,6 @@ test_action <- test_score %>%
   ))
 test_action
 ```
-```{r}
-test_action %>% 
-  filter(is.na(action))
-```
 
 
 ```{r}
@@ -202,12 +175,11 @@ test_action %>%
 ```{r}
 validation_sample <- test_action %>% 
   filter(segment==action)
-nrow(validation_sample)/nrow(test_action)
 ```
 
 ```{r}
-mean(test_action$visit)
-mean(validation_sample$visit)
+str_c("ランダム時の訪問率：",mean(test_action$visit))
+str_c("ロジックでの訪問率：",mean(validation_sample$visit))
 ```
 
 
