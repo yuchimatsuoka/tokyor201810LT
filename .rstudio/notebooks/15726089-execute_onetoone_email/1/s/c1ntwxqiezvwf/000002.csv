@@ -1,0 +1,4 @@
+"0","optimal_tbl <- matrix(get.variables(lpmodel),K,M,byrow = T) "
+"0","colnames(optimal_tbl) <- c(""Womens E-Mail"",""Mens E-Mail"")"
+"0","optimal_tbl <- optimal_tbl %>% as_tibble() %>% mutate(cluster=1:dim(optimal_tbl)[1])"
+"0","optimal_tbl"

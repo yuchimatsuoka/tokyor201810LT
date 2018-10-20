@@ -1,0 +1,7 @@
+"0","models <- list()"
+"0","for(i in 1:length(segs)){"
+"0","  train_sub <- train %>% "
+"0","    filter(segment==segs[i])"
+"0","  m <- glm(formula = fm,data = train_sub,family='binomial')"
+"0","  models[[i]] = m"
+"0","}"

@@ -1,0 +1,4 @@
+"0","clusters <- kmeans(test_score %>% "
+"0","                     select(lift_w,lift_m) %>% "
+"0","                     as.matrix()"
+"0","                   ,K)"

@@ -1,0 +1,3 @@
+"0","test_ix <- caTools::sample.split(d_dummied$visit,SplitRatio = 1/2)"
+"0","train <- d_dummied %>% filter(!test_ix)"
+"0","test <- d_dummied %>% filter(test_ix)"

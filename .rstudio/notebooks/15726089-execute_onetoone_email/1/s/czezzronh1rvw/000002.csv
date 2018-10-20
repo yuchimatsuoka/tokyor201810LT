@@ -1,0 +1,3 @@
+"0","test_score <- test_score %>% "
+"0","  mutate(cluster=clusters$cluster)"
+"0","test_score"

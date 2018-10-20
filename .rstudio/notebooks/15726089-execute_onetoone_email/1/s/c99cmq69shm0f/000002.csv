@@ -1,0 +1,3 @@
+"0","d <-  d %>% mutate(ix = 1:nrow(d)) %>% "
+"0","  select(ix,segment,everything())"
+"0","d"

@@ -1,0 +1,214 @@
+---
+title: "Uplift Modelingと数理最適化でコスト制約下でのキャンペーン効果を最大化する"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(caTools)
+library(lpSolveAPI)
+library(makedummies)
+set.seed(74)
+```
+
+```{r}
+if (file.exists("data/d.csv")){
+  d <- read_csv("data/d.csv")
+}else{
+  d <- read_csv("http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv")
+  write_csv(d,"data/d.csv")
+}
+
+```
+
+```{r}
+d <-  d %>% mutate(ix = 1:nrow(d)) %>% 
+  select(ix,segment,everything())
+d
+```
+
+channelとzip_codeをone-hot encoding
+
+```{r}
+d_dummied <- d %>% 
+  select(ix,segment,visit,recency,history,mens,womens,newbie) %>% 
+  bind_cols(
+    makedummies(d %>% 
+      select(zip_code,channel) %>% 
+      mutate(zip_code=as.factor(zip_code))
+  ))
+d_dummied
+```
+
+50%ずつtrain/testにわける
+
+50%でtrain/testに分ける。
+
+```{r}
+test_ix <- caTools::sample.split(d_dummied$visit,SplitRatio = 1/2)
+train <- d_dummied %>% filter(!test_ix)
+test <- d_dummied %>% filter(test_ix)
+```
+
+
+```{r}
+segs= c("Womens E-Mail","Mens E-Mail","No E-Mail")
+features <- colnames(train)[4:length(colnames(train))]
+fm <- as.formula(str_c("visit~",str_c(features,collapse = "+")))
+fm
+```
+
+各セグメントごとにロジスティック回帰
+
+```{r}
+models <- list()
+for(i in 1:length(segs)){
+  train_sub <- train %>% 
+    filter(segment==segs[i])
+  m <- glm(formula = fm,data = train_sub,family='binomial')
+  models[[i]] = m
+}
+```
+
+
+各メールを送った時のリフトを算出
+
+```{r}
+test_score <- test %>% 
+  mutate(
+    treat_w = predict(models[[1]],newdata = test,type = 'response')
+    ,treat_m = predict(models[[2]],newdata = test,type = 'response')
+    ,ctrl = predict(models[[3]],newdata = test,type = 'response')
+  ) %>% 
+  mutate(lift_w = treat_w-ctrl
+         ,lift_m = treat_m-ctrl) %>% 
+  select(ix,segment,visit,treat_w,treat_m,ctrl,lift_w,lift_m)
+test_score
+```
+
+
+```{r}
+K <- 10 #クラスタ数
+M <- 2 #キャンペーン種類
+B <- 20000 #コスト制約
+```
+
+
+```{r}
+clusters <- kmeans(test_score %>% 
+                     select(lift_w,lift_m) %>% 
+                     as.matrix()
+                   ,K)
+```
+
+
+クラスタを割り当てる
+```{r}
+test_score <- test_score %>% 
+  mutate(cluster=clusters$cluster)
+test_score
+```
+
+
+```{r}
+ggplot(test_score)+
+  geom_point(aes(x=lift_w,y=lift_m,color=as.factor(cluster)),alpha=1/4)+
+  theme_classic()+
+  theme(legend.position = 'none')
+```
+
+# クラスタごとに何人どのメールに割り当てると期待リフトが最大になるか
+
+
+```{r}
+lpmodel <- make.lp(nrow = K+1,ncol = K*M)
+set.constr.value(lpmodel,rhs=B,constraints = 1)
+i <- 1
+for(k in 1:K){
+  for(m in 1:M){
+    set.column(lpmodel,i,c(clusters$centers[k,m],1,1), indices=c(0,1,k+1)) 
+    i <- i+1
+  }
+  set.constr.value(lpmodel,rhs=clusters$size[k],constraints = k+1)
+}
+lp.control(lpmodel,sense='max')
+lpmodel
+```
+
+```{r}
+solve(lpmodel)
+get.objective(lpmodel)
+get.variables(lpmodel)
+```
+
+
+最適化の結果
+
+```{r}
+optimal_tbl <- matrix(get.variables(lpmodel),K,M,byrow = T) 
+colnames(optimal_tbl) <- c("Womens E-Mail","Mens E-Mail")
+optimal_tbl <- optimal_tbl %>% as_tibble() %>% mutate(cluster=1:dim(optimal_tbl)[1])
+optimal_tbl
+```
+
+
+クラスタごとにとるアクション
+
+```{r}
+action_tbl <-optimal_tbl %>% 
+  mutate(action=if_else(`Womens E-Mail`==0 & `Mens E-Mail`==0,"No Email",
+                        if_else(`Womens E-Mail`>`Mens E-Mail`,'Womens E-Mail','Mens E-Mail')
+                        )
+         ) %>% 
+  mutate(max_num=if_else(action=='Womens E-Mail',`Womens E-Mail`,`Mens E-Mail`)) %>% 
+  select(cluster,action,max_num)
+action_tbl
+```
+
+
+
+
+クラスタ内で誰を選ぶか？
+1. リフトが大きい人
+  - 効率がいい
+  - 今回はコストが一緒なのでこれでよい。
+
+
+```{r}
+test_action <- test_score %>% 
+  inner_join(optimal_tbl,by='cluster') %>% 
+  group_by(segment) %>% 
+  mutate(lift_w_rank=row_number(desc(lift_w)),lift_m_rank=row_number(desc(lift_m))) %>% 
+  ungroup() %>% 
+  mutate(action=case_when(
+    `Womens E-Mail` == 0 & `Mens E-Mail` == 0 ~ 'No Email'
+    , `Womens E-Mail` >= lift_w_rank ~ 'Womens E-Mail'
+    , `Mens E-Mail` >= lift_m_rank ~ 'Mens E-Mail'
+    , TRUE ~ 'No Email'
+  ))
+test_action
+```
+```{r}
+test_action %>% 
+  filter(is.na(action))
+```
+
+
+```{r}
+test_action %>% 
+  select(ix,segment,visit,action)
+```
+
+```{r}
+validation_sample <- test_action %>% 
+  filter(segment==action)
+nrow(validation_sample)/nrow(test_action)
+```
+
+```{r}
+mean(test_action$visit)
+mean(validation_sample$visit)
+```
+
+
+

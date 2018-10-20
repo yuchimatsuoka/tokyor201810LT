@@ -1,0 +1,4 @@
+"0","ggplot(test_score)+"
+"0","  geom_point(aes(x=lift_w,y=lift_m,color=as.factor(cluster)),alpha=1/4)+"
+"0","  theme_classic()+"
+"0","  theme(legend.position = 'none')"

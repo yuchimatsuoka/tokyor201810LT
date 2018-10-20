@@ -1,0 +1,22 @@
+"0","if (file.exists(""data/d.csv"")){"
+"0","  d <- read_csv(""data/d.csv"")"
+"0","}else{"
+"0","  d <- read_csv(""http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv"")"
+"0","  write_csv(d,""data/d.csv"")"
+"0","}"
+"2","Parsed with column specification:
+cols(
+  recency = col_integer(),
+  history_segment = col_character(),
+  history = col_double(),
+  mens = col_integer(),
+  womens = col_integer(),
+  zip_code = col_character(),
+  newbie = col_integer(),
+  channel = col_character(),
+  segment = col_character(),
+  visit = col_integer(),
+  conversion = col_integer(),
+  spend = col_double()
+)
+"

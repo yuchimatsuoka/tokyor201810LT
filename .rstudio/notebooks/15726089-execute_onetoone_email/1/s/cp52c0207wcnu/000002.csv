@@ -1,0 +1,7 @@
+"0","validation_sample <- test_action %>% "
+"0","  filter(segment==action)"
+"0","nrow(validation_sample)/nrow(test_action)"
+"1","[1]"
+"1"," 0.1993125"
+"1","
+"

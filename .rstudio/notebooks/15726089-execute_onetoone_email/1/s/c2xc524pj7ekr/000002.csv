@@ -1,0 +1,8 @@
+"0","d_dummied <- d %>% "
+"0","  select(ix,segment,visit,recency,history,mens,womens,newbie) %>% "
+"0","  bind_cols("
+"0","    makedummies(d %>% "
+"0","      select(zip_code,channel) %>% "
+"0","      mutate(zip_code=as.factor(zip_code))"
+"0","  ))"
+"0","d_dummied"

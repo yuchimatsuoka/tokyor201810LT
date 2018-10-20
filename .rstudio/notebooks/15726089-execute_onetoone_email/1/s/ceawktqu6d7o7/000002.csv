@@ -1,0 +1,8 @@
+"0","segs= c(""Womens E-Mail"",""Mens E-Mail"",""No E-Mail"")"
+"0","features <- colnames(train)[4:length(colnames(train))]"
+"0","fm <- as.formula(str_c(""visit~"",str_c(features,collapse = ""+"")))"
+"0","fm"
+"1","visit ~ recency + history + mens + womens + newbie + zip_code_Surburban + 
+"
+"1","    zip_code_Urban + channel
+"
