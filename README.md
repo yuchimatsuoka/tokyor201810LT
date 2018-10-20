@@ -13,4 +13,4 @@
 
 
 ## 発表スライド
-- https://www.slideshare.net/YuchiMatsuoka/201810tokyor
+- https://www.slideshare.net/YuchiMatsuoka/201810tokyor-120102018

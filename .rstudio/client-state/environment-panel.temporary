@@ -3,7 +3,7 @@
         "ascending_sort" : true,
         "expanded_objects" : [
         ],
-        "scroll_position" : 180,
+        "scroll_position" : 100,
         "sort_column" : 0
     }
 }

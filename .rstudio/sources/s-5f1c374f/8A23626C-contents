@@ -158,10 +158,10 @@ test_action <- test_score %>%
   mutate(lift_w_rank=row_number(desc(lift_w)),lift_m_rank=row_number(desc(lift_m))) %>% 
   ungroup() %>% 
   mutate(action=case_when(
-    `Womens E-Mail` == 0 & `Mens E-Mail` == 0 ~ 'No Email'
+    `Womens E-Mail` == 0 & `Mens E-Mail` == 0 ~ 'No E-Mail'
     , `Womens E-Mail` >= lift_w_rank ~ 'Womens E-Mail'
     , `Mens E-Mail` >= lift_m_rank ~ 'Mens E-Mail'
-    , TRUE ~ 'No Email'
+    , TRUE ~ 'No E-Mail'
   ))
 test_action
 ```
@@ -180,6 +180,9 @@ validation_sample <- test_action %>%
 ```{r}
 str_c("ランダム時の訪問率：",mean(test_action$visit))
 str_c("ロジックでの訪問率：",mean(validation_sample$visit))
+```
+```{r}
+mean(validation_sample$visit)/mean(test_action$visit)
 ```
 
 
